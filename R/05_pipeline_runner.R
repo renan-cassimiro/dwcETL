@@ -1,27 +1,15 @@
 #' @title Executar o Pipeline para uma Unica Configuracao
 #'
 #' @description Executa o fluxo completo de ETL (leitura -> limpeza ->
-#'   padronizacao de datas -> mapeamento Darwin Core -> gravacao) para uma
-#'   unica planilha bruta, descrita por um arquivo `.yaml`.
+#'   padronizacao de datas -> mapeamento Darwin Core -> derivacao -> gravacao)
+#'   para uma unica planilha bruta, descrita por um arquivo `.yaml`.
 #'
-#' @details Esta funcao e puramente determinística: dado o mesmo par
-#'   (arquivo bruto, arquivo de configuracao), ela sempre produz os mesmos
-#'   dois arquivos de saida, byte a byte (exceto por timestamps de sistema
-#'   de arquivos), sem gerar residuos. Os arquivos de saida sao
-#'   sobrescritos a cada execucao, nunca acumulados com sufixos de versao,
-#'   garantindo idempotencia.
-#'
-#' @param config_path Caminho do arquivo `.yaml` de configuracao da
-#'   planilha.
+#' @param config_path Caminho do arquivo `.yaml` de configuracao da planilha.
 #' @param raw_dir Diretorio contendo os arquivos brutos (`dados/raw/`).
 #' @param processed_dir Diretorio de saida (`dados/processed/`).
 #' @param output_delimiter Delimitador opcional para os arquivos de saida.
-#'   Se `NULL`, usa o definido no YAML (campo `output_delimiter`), ou
-#'   padrão `","` (vírgula). Valores comuns: `","`, `";"`, `"\t"`.
 #'
-#' @return (Invisivel) Uma lista com os `tibble`s `cleaned` e `dwc`
-#'   gerados, e os caminhos dos arquivos escritos, util para inspecao
-#'   interativa ou testes.
+#' @return (Invisivel) Uma lista com os `tibble`s `cleaned` e `dwc` gerados.
 #'
 #' @importFrom readr write_delim
 #' @importFrom tools file_path_sans_ext
@@ -33,7 +21,6 @@ run_single_config <- function(config_path,
   mensagem_etapa("Lendo configuracao", config_path)
   cfg <- read_pipeline_config(config_path)
   
-  # Define delimitador: prioridade para argumento, depois YAML, depois vírgula
   if (is.null(output_delimiter)) {
     output_delimiter <- cfg$output_delimiter %||% ","
   }
@@ -51,6 +38,10 @@ run_single_config <- function(config_path,
   mensagem_etapa("Mapeando para Darwin Core", basename(raw_path))
   df_dwc <- map_to_dwc(df_cleaned_com_datas, cfg)
   
+  # --- NOVO: Derivação automática de termos ---
+  mensagem_etapa("Derivando termos Darwin Core", basename(raw_path))
+  df_dwc <- derive_dwc_terms(df_dwc, cfg)
+  
   if (!dir.exists(processed_dir)) {
     dir.create(processed_dir, recursive = TRUE)
   }
@@ -59,15 +50,12 @@ run_single_config <- function(config_path,
   caminho_cleaned <- file.path(processed_dir, paste0(base_nome, "_cleaned.csv"))
   caminho_dwc <- file.path(processed_dir, paste0(base_nome, "_dwc.csv"))
   
-  # Saída cleaned: colunas originais (sem as derivadas de data)
   colunas_derivadas <- setdiff(names(df_cleaned_com_datas), names(df_cleaned))
   df_cleaned_saida <- df_cleaned_com_datas[, setdiff(names(df_cleaned_com_datas), colunas_derivadas), drop = FALSE]
   
-  # Escrita com delimitador configurável
   readr::write_delim(df_cleaned_saida, caminho_cleaned, delim = output_delimiter, na = "")
   readr::write_delim(df_dwc, caminho_dwc, delim = output_delimiter, na = "")
   
-  # --- Geração do relatório de validação ---
   mensagem_etapa("Gerando relatório de validação", basename(raw_path))
   generate_validation_report(
     df_cleaned = df_cleaned_saida,
@@ -77,7 +65,20 @@ run_single_config <- function(config_path,
     output_dir = processed_dir
   )
   
-  mensagem_etapa("Concluido", sprintf("%s -> %s | %s | validation.json", basename(raw_path), basename(caminho_cleaned), basename(caminho_dwc)))
+  mensagem_etapa("Gerando relatório PDF", basename(raw_path))
+  generate_pdf_report(
+    df_raw = df_raw,
+    df_cleaned = df_cleaned_saida,
+    df_dwc = df_dwc,
+    cfg = cfg,
+    output_dir = processed_dir,
+    base_name = base_nome
+  )
+  
+  mensagem_etapa("Concluido", sprintf("%s -> %s | %s | validation.json | report.pdf",
+                                      basename(raw_path),
+                                      basename(caminho_cleaned),
+                                      basename(caminho_dwc)))
   
   invisible(list(
     cleaned = df_cleaned_saida,
@@ -87,27 +88,9 @@ run_single_config <- function(config_path,
   ))
 }
 
-# As demais funções (run_pipeline, mensagem_etapa) permanecem inalteradas, 
-# mas o run_pipeline deve propagar o output_delimiter se desejado.
-# Adicionamos um parâmetro output_delimiter também em run_pipeline.
-
-#' @title Executar o Pipeline para Todas as Configuracoes Disponiveis
+#' @title Executar o Pipeline para Todas as Configuracoes
 #'
-#' @description Varre um diretorio de configuracoes `.yaml` e executa
-#'   [run_single_config()] para cada uma, isolando falhas individuais para
-#'   que um erro em uma planilha nao interrompa o processamento das
-#'   demais. Ao final, imprime um resumo consolidado de sucessos e falhas.
-#'
-#' @param config_dir Diretorio contendo os arquivos `.yaml` (padrao:
-#'   `"config"`).
-#' @param raw_dir Diretorio dos arquivos brutos (padrao: `"dados/raw"`).
-#' @param processed_dir Diretorio de saida (padrao: `"dados/processed"`).
-#' @param output_delimiter Delimitador para os arquivos de saida. Se `NULL`,
-#'   usa o definido em cada YAML ou o padrão `","`. 
-#'
-#' @return (Invisivel) Um `data.frame` resumo com uma linha por
-#'   configuracao processada, contendo `config`, `status` e `mensagem`.
-#'
+#' @inheritParams run_single_config
 #' @export
 run_pipeline <- function(config_dir = "config",
                          raw_dir = "dados/raw",
@@ -146,4 +129,17 @@ run_pipeline <- function(config_dir = "config",
   cat("============================================\n")
   
   invisible(resumo)
+}
+
+#' @title Imprimir Mensagem de Etapa do Pipeline
+#' @description Funcao auxiliar interna de logging simples e consistente,
+#'   usada para tornar a execucao do pipeline auditavel no console/log,
+#'   sem introduzir dependencias externas de logging.
+#' @param etapa Nome curto da etapa em execucao.
+#' @param detalhe Detalhe adicional (ex: nome de arquivo).
+#' @return (Invisivel) `NULL`. Efeito colateral: imprime no console.
+#' @keywords internal
+mensagem_etapa <- function(etapa, detalhe = "") {
+  cat(sprintf("[%s] %s: %s\n", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), etapa, detalhe))
+  invisible(NULL)
 }

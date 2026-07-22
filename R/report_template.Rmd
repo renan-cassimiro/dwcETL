@@ -1,0 +1,137 @@
+---
+title: "Relatório de Validação - `r params$base_name`"
+author: "Pipeline ETL Darwin Core"
+date: "`r Sys.Date()`"
+params:
+  df_raw: ~
+  df_cleaned: ~
+  df_dwc: ~
+  cfg: ~
+  base_name: ~
+output:
+  pdf_document:
+    latex_engine: pdflatex
+    keep_tex: true
+    toc: true
+    toc_depth: 2
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage[table]{xcolor}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+.gerar_tabela_estatisticas <- function(df) {
+  if (ncol(df) == 0) return("Nenhuma coluna para exibir.")
+  resultados <- list()
+  for (col in names(df)) {
+    dados <- df[[col]]
+    tipo <- class(dados)[1]
+    n_na <- sum(is.na(dados))
+    n_total <- length(dados)
+    linha <- data.frame(
+      Coluna = col,
+      Tipo = tipo,
+      Total = n_total,
+      NAs = n_na,
+      NA_percent = round(n_na / n_total * 100, 2),
+      Min = NA_real_,
+      Max = NA_real_,
+      Media = NA_real_,
+      Desvio = NA_real_,
+      Valores_unicos = NA_character_,
+      stringsAsFactors = FALSE
+    )
+    if (is.numeric(dados)) {
+      if (all(is.na(dados))) {
+
+          linha$Min <- NA
+          linha$Max <- NA
+          linha$Media <- NA
+          linha$Desvio <- NA
+  
+      } else {
+  
+          linha$Min <- round(min(dados, na.rm = TRUE), 4)
+          linha$Max <- round(max(dados, na.rm = TRUE), 4)
+          linha$Media <- round(mean(dados, na.rm = TRUE), 4)
+          linha$Desvio <- round(sd(dados, na.rm = TRUE), 4)
+  
+      }
+    } else {
+      unique_vals <- unique(dados[!is.na(dados)])
+      if (length(unique_vals) <= 10) {
+        linha$Valores_unicos <- paste(unique_vals, collapse = ", ")
+      } else {
+        linha$Valores_unicos <- sprintf("%d valores únicos", length(unique_vals))
+      }
+    }
+    resultados[[col]] <- linha
+  }
+  stats_df <- do.call(dplyr::bind_rows, resultados)
+  kable(stats_df, format = "latex", booktabs = TRUE, escape = TRUE, caption = "Estatísticas por coluna") %>%
+    kable_styling(latex_options = c("striped", "scale_down"))
+}
+
+.gerar_tabela_descricoes <- function(desc_list, tipo) {
+  if (length(desc_list) == 0) return(sprintf("Nenhuma descrição fornecida para os campos de %s.", tipo))
+  df <- data.frame(Campo = names(desc_list), Descricao = unlist(desc_list), stringsAsFactors = FALSE)
+  kable(df, format = "latex", booktabs = TRUE, escape = TRUE, caption = sprintf("Descrições dos campos de %s", tipo)) %>%
+    kable_styling(latex_options = c("striped", "scale_down"))
+}
+```
+
+# Resumo da execução
+
+- **Arquivo bruto:** `r params$cfg$raw_file`
+- **Configuração:** `r if (!is.null(params$cfg$config_path)) params$cfg$config_path else "N/A"`
+- **Dataset bruto (raw):** `r nrow(params$df_raw)` linhas x `r ncol(params$df_raw)` colunas
+- **Dataset limpo (cleaned):** `r nrow(params$df_cleaned)` linhas x `r ncol(params$df_cleaned)` colunas
+- **Dataset Darwin Core (dwc):** `r nrow(params$df_dwc)` linhas x `r ncol(params$df_dwc)` colunas
+
+# Dataset limpo (`cleaned`)
+
+Estatísticas descritivas por coluna do dataset limpo, antes do mapeamento
+para os termos Darwin Core.
+
+```{r stats-cleaned, results='asis'}
+.gerar_tabela_estatisticas(params$df_cleaned)
+```
+
+# Dataset Darwin Core (`dwc`)
+
+Estatísticas descritivas por coluna após o mapeamento De/Para para os
+termos padronizados do Darwin Core.
+
+```{r stats-dwc, results='asis'}
+.gerar_tabela_estatisticas(params$df_dwc)
+```
+
+# Mapeamento De/Para (Darwin Core)
+
+Correspondência entre as colunas originais da planilha bruta e os termos
+Darwin Core aplicados, conforme definido no arquivo de configuração.
+
+```{r mapeamento-dwc, results='asis'}
+mapping <- params$cfg$dwc_mapping
+if (is.null(mapping) || length(mapping) == 0) {
+  cat("Nenhum mapeamento De/Para definido na configuração.")
+} else {
+  .gerar_tabela_descricoes(mapping, "mapeamento Darwin Core")
+}
+```
+
+# Campos verbatim
+
+```{r mapeamento-verbatim, results='asis'}
+verbatim <- params$cfg$verbatim_mapping
+if (is.null(verbatim) || length(verbatim) == 0) {
+  cat("Nenhum campo verbatim explícito definido na configuração.")
+} else {
+  .gerar_tabela_descricoes(verbatim, "campos verbatim")
+}
+```

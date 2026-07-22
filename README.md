@@ -138,6 +138,42 @@ Os campos verbatim aparecem apenas em `*_dwc.csv` (nunca em
 - **Documentação**: todas as funções exportadas e auxiliares seguem
   Roxygen2 (`@title`, `@description`, `@details`, `@param`, `@return`,
   `@importFrom`), validado com `roxygen2::parse_file()`.
+  
+  ## 6. Derivações Automáticas de Termos Darwin Core
+
+Após o mapeamento De/Para, o pipeline aplica automaticamente regras de
+derivação para enriquecer o dataset com campos complementares,
+**sem necessidade de configuração adicional**.
+
+### 6.1. Derivação de datas (`eventDate`)
+
+Se a coluna `eventDate` existir no formato ISO 8601 (`YYYY-MM-DD`), o pipeline
+gera automaticamente as colunas:
+
+- `year`  — ano extraído
+- `month` — mês (1–12)
+- `day`   — dia do mês (1–31)
+
+Caso `eventDate` seja `NA`, os três campos também serão `NA`.
+
+### 6.2. Estrutura taxonômica (`scientificName`)
+
+Se a coluna `scientificName` estiver presente, o pipeline garante a existência
+das seguintes colunas:
+
+- `genus`
+- `specificEpithet`
+- `infraspecificEpithet`
+- `scientificNameAuthorship`
+- `taxonRank`
+
+Se alguma dessas colunas ainda não existir, ela é criada com o valor
+`"[A PREENCHER]"` para todas as linhas. **Nenhum parsing do nome científico**
+é realizado nesta versão — cabe ao curador preencher esses campos
+manualmente ou com ferramentas externas de resolução taxonômica.
+
+Todas as colunas derivadas aparecem nos arquivos `*_dwc.csv`, no relatório
+de validação e no PDF, sem tratamento especial.
 
 ## 7. Testado neste ambiente
 

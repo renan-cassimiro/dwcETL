@@ -16,7 +16,8 @@
 
 pacotes_necessarios <- c(
   "readr", "readxl", "dplyr", "stringr", "lubridate",
-  "yaml", "tibble", "tools", "jsonlite"   # <-- adicionado jsonlite
+  "yaml", "tibble", "tools", "jsonlite",
+  "rmarkdown", "knitr", "kableExtra", "tinytex"   # <-- novos
 )
 
 pacotes_ausentes <- pacotes_necessarios[!vapply(
@@ -31,6 +32,20 @@ if (length(pacotes_ausentes) > 0) {
   ))
 }
 
+# Garantir que o TinyTeX está instalado
+if (!requireNamespace("tinytex", quietly = TRUE)) {
+  message("Instalando tinytex...")
+  renv::install("tinytex")
+}
+
+# if (!tinytex::is_tinytex()) {
+#   message("Instalando TinyTeX (pode levar alguns minutos)...")
+#   tinytex::install_tinytex()
+# } else {
+#   # Atualiza pacotes LaTeX existentes
+#   tinytex::tlmgr_update()
+# }
+
 # Carrega o motor generico (ordem importa: utils antes do runner)
 modulos <- c(
   "R/01_io_utils.R",
@@ -38,8 +53,10 @@ modulos <- c(
   "R/03_date_standardize.R",
   "R/04_dwc_mapper.R",
   "R/04b_verbatim.R",
-  "R/05_pipeline_runner.R",
-  "R/06_validation.R"   # <-- novo
+  "R/04c_dwc_derivations.R",        # NOVO
+  "R/05_pipeline_runner.R",        # renomeado (era 05)
+  "R/06_validation.R",             # renomeado (era 06)
+  "R/07_report_pdf.R"              # renomeado (era 07)
 )
 invisible(lapply(modulos, source))
 
