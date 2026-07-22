@@ -151,3 +151,10 @@ e cabeçalhos, coordenadas vazias e datas em três formatos distintos:
 - conversão correta das três variações de data para ISO 8601;
 - geração determinística e idêntica em execuções repetidas (idempotência
   verificada via `md5sum`).
+  
+### Atualizações 
+Adicionar seções sobre:
+
+- Dynamic Properties: Mapeamento de colunas para dynamicProperties.* e o comportamento de agrupamento JSON.
+- Validação: o pipeline Validação em arquivo *_validation.json com estatísticas descritivas.
+- Separador de saída: Configuração do output_delimiter no YAML ou via argumento da função.

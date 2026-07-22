@@ -1,71 +1,107 @@
 # =============================================================================
 # config/template.yaml
-#
-# Configuracao de exemplo para a planilha "planilha_exemplo.csv".
-# Copie este arquivo, ajuste os campos abaixo e salve com um nome unico
-# (ex: config/colecao_borboletas.yaml) para adicionar uma nova planilha ao
-# pipeline -- NENHUMA alteracao de codigo R e necessaria.
+# (exemplo atualizado)
 # =============================================================================
 
-# Nome do arquivo dentro de dados/raw/
-raw_file: "planilha_exemplo.csv"
-
-# Tipo do arquivo bruto: csv | tsv | xlsx | pdf
+raw_file: "anfibios/kelly_torralvo/planilha_amostragem_anuros_Tefe.csv"
 file_type: "csv"
-
-# Delimitador (apenas para csv/tsv; ignorado para xlsx/pdf)
-delimiter: ","
-
-# Codificacao do arquivo
+delimiter: ";"
 encoding: "UTF-8"
-
-# Aba a ler, se file_type = xlsx (nome ou numero). Ignorado para outros tipos.
 sheet: 1
 
-# Metadados fixos: adicionados como colunas constantes na saida *_dwc.csv
-fixed_metadata:
-  basisOfRecord: "PreservedSpecimen"
-  datasetName: "Colecao Exemplo - Museu XYZ"
-  institutionCode: "MUS-XYZ"
-  license: "CC-BY 4.0"
+# Delimitador para os arquivos de saída (opcional). Padrão: ",".
+# Valores comuns: "," (vírgula), ";" (ponto e vírgula), "\t" (tab).
+output_delimiter: ";"
 
-# Tipagem explicita de colunas do dado BRUTO (nomes originais da planilha).
-# Tipos suportados: numeric | integer | character
+fixed_metadata:
+  datasetName: "[A DEFINIR]"
+  institutionCode: "[A DEFINIR]"
+  ownerInstitutionCode: "[A DEFINIR]"
+  license: "CC BY 4.0"
+  language: "pt"
+  country: "Brazil"
+  countryCode: "BR"
+
 column_types:
+  ID: character
+  Local: character
+  Trilha: character
+  Parcela: character
   Latitude: numeric
   Longitude: numeric
-  Numero_Tombo: character
+  Amostragem: integer
+  Data: character
+  Temperatura: numeric
+  Umidade: numeric
+  Grupo: character
+  Familia: character
+  Especie: character
+  Individuos_EO: integer
+  Individuos_Vocal: integer
+  Individuos_Avist: integer
+  TOTAL: integer
+  Segmento_parcela: character
+  N_coletado: integer
+  Codigo_Coleta: character
+  Tecido: character
+  Colecao_destino: character
+  Codigo_Tombo: character
+  Inicio: character
+  Fim: character
+  Coletor_principal: character
+  Observacao: character
 
-# Colunas de data a padronizar para ISO 8601 (AAAA-MM-DD).
-# A chave (ex: eventDate) e o nome da coluna derivada que sera criada.
-# 'formats' e a ordem de tentativas de parsing (lubridate::parse_date_time).
-# Por padrao, o valor ORIGINAL (antes do parsing) e automaticamente
-# preservado como campo verbatim (aqui, "verbatimEventDate"). Para
-# desativar isso ou escolher outro nome de termo verbatim, use
-# 'keep_verbatim: false' ou 'verbatim_term: "outroTermo"'.
 date_columns:
   eventDate:
-    original_column: "Data_Coleta"
-    formats: ["dmy", "ymd", "mdy"]
-    # keep_verbatim: true        # (padrao) gera "verbatimEventDate" automaticamente
-    # verbatim_term: "verbatimEventDate"  # nome padrao, pode ser sobrescrito
+    original_column: "Data"
+    formats:
+      - "ymd HMS"
+      - "ymd HM"
+      - "ymd"
+      - "dmy HMS"
+      - "dmy HM"
+      - "dmy"
+      - "mdy HMS"
+      - "mdy HM"
+      - "mdy"
+    verbatim_term: "verbatimEventDate"
 
-# Mapeamento De/Para explicito para campos VERBATIM: "coluna original" ->
-# "termo verbatim Darwin Core". Use para qualquer campo que deva ser
-# preservado exatamente como veio na planilha (sem trocar tipo/formato),
-# alem dos campos de data (que ja sao cobertos automaticamente acima).
 verbatim_mapping:
+  "Data": "verbatimEventDate"
   "Latitude": "verbatimLatitude"
   "Longitude": "verbatimLongitude"
+  "Local": "verbatimLocality"
+  "Especie": "verbatimIdentification"
+  "Coletor_principal": "verbatimCollector"
+  "Codigo_Coleta": "verbatimLabel"
 
-# Mapeamento De/Para: "coluna original ou derivada" -> "termo Darwin Core".
-# Para usar uma coluna de data ja padronizada acima, referencie pela sua
-# chave de saida (ex: "eventDate": "eventDate").
 dwc_mapping:
-  "Numero_Tombo": "catalogNumber"
-  "Nome_Cientifico": "scientificName"
-  "Coletor": "recordedBy"
+  "ID": "occurrenceID"
+  "Local": "locality"
+  "Trilha": "locationRemarks"
+  "Parcela": "locationID"
   "Latitude": "decimalLatitude"
   "Longitude": "decimalLongitude"
-  "Localidade": "locality"
-  "eventDate": "eventDate"
+  "Amostragem": "eventID"
+  "Data": "eventDate"
+  # Exemplo de como mapear para dynamicProperties:
+  # Cada coluna é mapeada para dynamicProperties.<propriedade>
+  "Temperatura": "dynamicProperties.airTemperature"
+  "Umidade": "dynamicProperties.relativeHumidity"
+  "Grupo": "dynamicProperties.taxonGroup"
+  "Individuos_EO": "dynamicProperties.occasionalIndividuals"
+  "Individuos_Vocal": "dynamicProperties.vocalIndividuals"
+  "Individuos_Avist": "dynamicProperties.visualIndividuals"
+  "Segmento_parcela": "dynamicProperties.plotSegment"
+  "N_coletado": "dynamicProperties.collectedIndividuals"
+  "Inicio": "dynamicProperties.startTime"
+  "Fim": "dynamicProperties.endTime"
+  "Observacao": "dynamicProperties.observation"
+  "Familia": "family"
+  "Especie": "scientificName"
+  "TOTAL": "individualCount"
+  "Codigo_Coleta": "fieldNumber"
+  "Tecido": "preparations"
+  "Colecao_destino": "institutionCode"
+  "Codigo_Tombo": "catalogNumber"
+  "Coletor_principal": "recordedBy"

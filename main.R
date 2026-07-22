@@ -16,7 +16,7 @@
 
 pacotes_necessarios <- c(
   "readr", "readxl", "dplyr", "stringr", "lubridate",
-  "yaml", "tibble", "tools"
+  "yaml", "tibble", "tools", "jsonlite"   # <-- adicionado jsonlite
 )
 
 pacotes_ausentes <- pacotes_necessarios[!vapply(
@@ -38,7 +38,8 @@ modulos <- c(
   "R/03_date_standardize.R",
   "R/04_dwc_mapper.R",
   "R/04b_verbatim.R",
-  "R/05_pipeline_runner.R"
+  "R/05_pipeline_runner.R",
+  "R/06_validation.R"   # <-- novo
 )
 invisible(lapply(modulos, source))
 
